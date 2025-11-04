@@ -1,0 +1,131 @@
+name: Deploy GeoView Application
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_VM_INSTANCE_NAME: ${{ secrets.GCP_VM_INSTANCE_NAME }}
+  GCP_VM_ZONE: ${{ secrets.GCP_VM_ZONE }}
+  VM_USERNAME: ${{ secrets.VM_USERNAME }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: Front-End/package-lock.json
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+
+
+    - name: Install Frontend Dependencies
+      run: |
+        cd Front-End
+        npm ci
+
+    - name: Build Frontend
+      run: |
+        cd Front-End
+        npm run build
+      env:
+        VITE_API_URL: ${{ secrets.VITE_API_URL }}
+        VITE_SERVER_URL: ${{ secrets.VITE_SERVER_URL }}
+
+
+
+    - name: Build Backend
+      run: |
+        cd Spring-Boot-Backend
+        mvn clean package -DskipTests
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+    - name: Set up Google Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Create deployment archive
+      run: |
+        mkdir -p deployment-package
+        
+        # Copy frontend build
+        cp -r Front-End/dist deployment-package/frontend
+        
+        # Copy backend jar
+        cp Spring-Boot-Backend/target/geoview-backend-*.jar deployment-package/geoview-backend.jar
+        
+        # Create archive
+        tar -czf deployment.tar.gz -C deployment-package .
+
+    - name: Deploy to VM
+      run: |
+        # Copy deployment archive to VM
+        gcloud compute scp deployment.tar.gz $VM_USERNAME@$GCP_VM_INSTANCE_NAME:~/ \
+          --zone=$GCP_VM_ZONE \
+          --project=$GCP_PROJECT_ID
+
+        # Deploy applications
+        gcloud compute ssh $VM_USERNAME@$GCP_VM_INSTANCE_NAME \
+          --zone=$GCP_VM_ZONE \
+          --project=$GCP_PROJECT_ID \
+          --command="
+            # Extract deployment package
+            tar -xzf deployment.tar.gz
+            
+            # Create directories if they don't exist
+            mkdir -p ~/geoview-backend
+            mkdir -p ~/geoview-frontend
+            
+            # Stop existing backend service
+            sudo systemctl stop geoview-backend || true
+            
+            # Create application.properties with production settings
+            cat > ~/geoview-backend/application.properties << 'PROPS_EOF'
+        spring.data.mongodb.uri=${{ secrets.MONGODB_URI }}
+        spring.data.mongodb.database=${{ secrets.MONGODB_DATABASE }}
+        geoview.app.jwtSecret=${{ secrets.JWT_SECRET }}
+        geoview.app.jwtExpirationMs=${{ secrets.JWT_EXPIRATION_MS }}
+        server.port=8080
+        management.endpoints.web.exposure.include=health
+        management.endpoint.health.show-details=never
+        management.health.defaults.enabled=true
+        cors.allowed.origins=${{ secrets.CORS_ALLOWED_ORIGINS }}
+        logging.level.com.geoview=INFO
+        PROPS_EOF
+            
+            # Deploy backend
+            cp geoview-backend.jar ~/geoview-backend/
+            
+            # Deploy frontend
+            rm -rf ~/geoview-frontend/*
+            cp -r frontend/* ~/geoview-frontend/
+            
+            # Start backend service
+            sudo systemctl start geoview-backend
+            
+            # Reload nginx (if configured)
+            sudo systemctl reload nginx || true
+            
+            # Cleanup
+            rm -f deployment.tar.gz
+            rm -rf frontend geoview-backend.jar
+            
+            echo 'Deployment completed successfully!'
+          "
