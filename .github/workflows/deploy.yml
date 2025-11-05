@@ -47,7 +47,6 @@ jobs:
         VITE_SERVER_URL: ${{ secrets.VITE_SERVER_URL }}
 
 
-
     - name: Build Backend
       run: |
         cd Spring-Boot-Backend
