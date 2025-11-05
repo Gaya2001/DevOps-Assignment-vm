@@ -10,8 +10,8 @@ function Header() {
     const location = useLocation();
     
     // Always call hooks first, then handle loading state
-    const { isAuthenticated, user, logout } = authContext || {};
-    const isLoading = !authContext || authContext.loading;
+    const { isAuthenticated, user, logout, loading } = authContext || {};
+    const isLoading = !authContext || loading;
 
     // Handle scroll effect
     useEffect(() => {
@@ -41,14 +41,21 @@ function Header() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isMenuOpen]);
 
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+
     const handleLogout = async () => {
         try {
+            setIsLoggingOut(true);
             if (logout) {
-                await logout();
-                navigate('/');
+                const success = await logout();
+                if (success) {
+                    navigate('/', { replace: true });
+                }
             }
         } catch (error) {
             console.error('Logout failed:', error);
+        } finally {
+            setIsLoggingOut(false);
         }
     };
 
@@ -155,7 +162,13 @@ function Header() {
                                 )}
                             </Link>
                             
-                            {isAuthenticated ? (
+                            {loading && !user ? (
+                                // Show loading skeleton for authentication state
+                                <div className="flex items-center space-x-3">
+                                    <div className="w-20 h-6 bg-gray-200 rounded animate-pulse"></div>
+                                    <div className="w-16 h-8 bg-gray-200 rounded-full animate-pulse"></div>
+                                </div>
+                            ) : isAuthenticated ? (
                                 <>
                                     <Link 
                                         to="/profile" 
@@ -187,14 +200,26 @@ function Header() {
                                     </Link>
                                     <button 
                                         onClick={handleLogout}
-                                        className="group relative px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white text-sm xl:text-base rounded-full hover:from-red-600 hover:to-red-700 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl font-medium"
+                                        disabled={isLoggingOut}
+                                        className={`group relative px-4 py-2 text-white text-sm xl:text-base rounded-full transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl font-medium ${
+                                            isLoggingOut 
+                                                ? 'bg-gray-400 cursor-not-allowed' 
+                                                : 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700'
+                                        }`}
                                         aria-label="Logout"
                                     >
                                         <span className="flex items-center space-x-2">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                            </svg>
-                                            <span>Logout</span>
+                                            {isLoggingOut ? (
+                                                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                            ) : (
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                                </svg>
+                                            )}
+                                            <span>{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
                                         </span>
                                     </button>
                                 </>
@@ -301,7 +326,19 @@ function Header() {
                                 )}
                             </Link>
                             
-                            {isAuthenticated ? (
+                            {loading && !user ? (
+                                // Mobile loading state
+                                <div className="space-y-3 px-4">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="w-5 h-5 bg-gray-200 rounded animate-pulse"></div>
+                                        <div className="w-20 h-4 bg-gray-200 rounded animate-pulse"></div>
+                                    </div>
+                                    <div className="flex items-center space-x-3">
+                                        <div className="w-5 h-5 bg-gray-200 rounded animate-pulse"></div>
+                                        <div className="w-16 h-4 bg-gray-200 rounded animate-pulse"></div>
+                                    </div>
+                                </div>
+                            ) : isAuthenticated ? (
                                 <>
                                     <Link 
                                         to="/profile" 

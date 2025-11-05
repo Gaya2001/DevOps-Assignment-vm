@@ -48,13 +48,15 @@ export const AuthProvider = ({ children }) => {
             setLoading(true);
             setError(null);
             const { user } = await loginUser(credentials);
+            // Set user immediately after successful API response
             setUser(user);
+            setLoading(false); // Set loading false immediately for better UX
             return true;
         } catch (err) {
             setError(err.response?.data?.message || 'Login failed');
-            return false;
-        } finally {
+            setUser(null); // Ensure user is null on login failure
             setLoading(false);
+            return false;
         }
     };
 
@@ -94,12 +96,17 @@ export const AuthProvider = ({ children }) => {
     const logout = async () => {
         try {
             setLoading(true);
-            await logoutUser();
+            // Clear user state immediately for better UX
             setUser(null);
+            // Clear token immediately
+            localStorage.removeItem('token');
+            // Then make the API call
+            await logoutUser();
             return true;
         } catch (err) {
-            setError(err.response?.data?.message || 'Logout failed');
-            return false;
+            console.error('Logout API call failed:', err);
+            // Even if API fails, user is logged out locally
+            return true;
         } finally {
             setLoading(false);
         }
