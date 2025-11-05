@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCountries } from '../context/CountryContext';
-import globeVideo from '../assets/7429830-hd_1920_1080_25fps.mp4';
+import globeVideo from '../assets/7429830-hd_1920_1080_25fps (1).mp4';
 
 function HeroSection() {
     const { isAuthenticated } = useAuth();
@@ -10,8 +10,11 @@ function HeroSection() {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [showFullHero, setShowFullHero] = useState(true);
     const [videoError, setVideoError] = useState(false);
+    const [videoLoaded, setVideoLoaded] = useState(false);
+    const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
     const [scrollY, setScrollY] = useState(0);
     const [blurIntensity, setBlurIntensity] = useState(0);
+    const heroRef = useRef(null);
 
     // Debug: Check if video file is imported correctly
     console.log('Globe video path:', globeVideo);
@@ -79,6 +82,12 @@ function HeroSection() {
 
             {/* Video Background - Full Screen */}
             <div className="absolute inset-0 overflow-hidden">
+                {/* Loading placeholder */}
+                {!videoLoaded && (
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-purple-900 to-blue-800 animate-pulse">
+                        <div className="absolute inset-0 bg-black/30"></div>
+                    </div>
+                )}
                 {!videoError ? (
                     <video
                         key="globe-video"
@@ -86,7 +95,8 @@ function HeroSection() {
                         loop
                         muted
                         playsInline
-                        preload="auto"
+                        preload="metadata"
+                        loading="lazy"
                         className="absolute inset-0 w-full h-full object-cover"
                         style={{ 
                             minWidth: '100%',
@@ -98,17 +108,25 @@ function HeroSection() {
                             setVideoError(true);
                         }}
                         onLoadStart={() => {
-                            console.log('Video loading started');
+                            console.log('📹 Video loading started...');
+                            console.time('video-load-time');
                         }}
                         onCanPlay={() => {
-                            console.log('Video can play');
+                            console.log('▶️ Video can play');
                         }}
                         onLoadedData={() => {
-                            console.log('Video data loaded');
+                            console.log('✅ Video data loaded');
+                            console.timeEnd('video-load-time');
+                            setVideoLoaded(true);
+                        }}
+                        onProgress={() => {
+                            console.log('📊 Video loading progress...');
                         }}
                     >
                         <source src={globeVideo} type="video/mp4" />
-                        Your browser does not support the video tag.
+                        <p className="text-white text-center">
+                            Your browser does not support video playback.
+                        </p>
                     </video>
                 ) : (
                 /* Fallback subtle background when video fails to load */
