@@ -5,6 +5,11 @@ import { getAuthToken } from '../services/auth';
 const API_URL = import.meta.env.VITE_API_URL;
 const SERVER_URL = import.meta.env.VITE_SERVER_URL;
 
+// Debug logging
+console.log('Environment variables:');
+console.log('VITE_API_URL:', API_URL);
+console.log('VITE_SERVER_URL:', SERVER_URL);
+
 
 
 export const countriesApi = axios.create({
