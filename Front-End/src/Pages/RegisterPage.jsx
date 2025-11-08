@@ -12,8 +12,12 @@ function RegisterPage() {
     const [formErrors, setFormErrors] = useState({});
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false); // Local loading state
     const { register, loading, error } = useAuth();
     const navigate = useNavigate();
+
+    // Use only local loading state for immediate control
+    const isLoading = isSubmitting; // Remove dependency on AuthContext loading
 
     const validateForm = () => {
         const errors = {};
@@ -37,11 +41,24 @@ function RegisterPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        // Prevent submission if already loading
+        if (isLoading) return;
+        
         const errors = validateForm();
         if (Object.keys(errors).length > 0) return setFormErrors(errors);
 
-        const success = await register(formData);
-        if (success) navigate('/login', { state: { message: 'Registered successfully!' } });
+        setIsSubmitting(true);
+        try {
+            const success = await register(formData);
+            if (success) {
+                navigate('/', { state: { message: 'Registered successfully!' } });
+            }
+        } catch (err) {
+            console.error('Registration error:', err);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -258,21 +275,19 @@ function RegisterPage() {
                         {/* Submit Button */}
                         <button
                             type="submit"
-                            disabled={loading}
-                            className="w-full py-3 bg-gradient-to-r from-green-500 to-blue-600 text-white font-semibold rounded-xl shadow-lg hover:from-green-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                            className={`w-full py-3 text-white font-semibold rounded-xl transition-all duration-300 transform ${
+                                isLoading 
+                                    ? 'bg-green-600 cursor-wait' 
+                                    : 'bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 hover:scale-105 shadow-lg hover:shadow-xl'
+                            }`}
                         >
-                            {loading ? (
-                                <div className="flex items-center justify-center">
-                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                                    Creating account...
+                            {isLoading ? (
+                                <div className="flex items-center justify-center space-x-2">
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    <span>Creating account...</span>
                                 </div>
                             ) : (
-                                <div className="flex items-center justify-center">
-                                    Create Account
-                                    <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                                    </svg>
-                                </div>
+                                'Create Account'
                             )}
                         </button>
                     </form>

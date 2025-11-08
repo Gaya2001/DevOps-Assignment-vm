@@ -6,12 +6,27 @@ function Header() {
     const authContext = useAuth();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [authTransition, setAuthTransition] = useState(false); // Track auth transitions
     const navigate = useNavigate();
     const location = useLocation();
     
     // Always call hooks first, then handle loading state
     const { isAuthenticated, user, logout, loading } = authContext || {};
     const isLoading = !authContext || loading;
+
+    // Track authentication transitions to prevent flickering
+    useEffect(() => {
+        if (loading) {
+            setAuthTransition(true);
+        } else {
+            // Delay hiding transition state to prevent flicker
+            const timer = setTimeout(() => {
+                setAuthTransition(false);
+            }, 100);
+            return () => clearTimeout(timer);
+        }
+    }, [loading]);
 
     // Handle scroll effect
     useEffect(() => {
@@ -41,11 +56,10 @@ function Header() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isMenuOpen]);
 
-    const [isLoggingOut, setIsLoggingOut] = useState(false);
-
     const handleLogout = async () => {
         try {
             setIsLoggingOut(true);
+            setAuthTransition(true); // Prevent flicker during logout
             if (logout) {
                 const success = await logout();
                 if (success) {
@@ -55,7 +69,10 @@ function Header() {
         } catch (error) {
             console.error('Logout failed:', error);
         } finally {
-            setIsLoggingOut(false);
+            setTimeout(() => {
+                setIsLoggingOut(false);
+                setAuthTransition(false);
+            }, 200);
         }
     };
 
@@ -66,14 +83,41 @@ function Header() {
     const isActiveLink = (path) => location?.pathname === path;
 
     // Handle loading state after all hooks are called
-    if (isLoading) {
+    if (isLoading && !authTransition) {
         return (
             <div className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
                 <div className="w-full px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-center items-center h-16">
-                        <div className="animate-pulse flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-gray-300 rounded-xl"></div>
-                            <div className="w-24 h-6 bg-gray-300 rounded"></div>
+                    <div className="flex justify-between items-center h-16">
+                        {/* Logo - Keep consistent during loading */}
+                        <div className="flex items-center flex-shrink-0">
+                            <Link 
+                                to="/" 
+                                className="flex items-center space-x-2 sm:space-x-3 group relative"
+                            >
+                                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 via-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                                    <span className="text-white font-bold text-sm sm:text-lg">🌍</span>
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-lg sm:text-2xl font-bold leading-none whitespace-nowrap bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                                        GeoView
+                                    </span>
+                                    <span className="text-xs hidden sm:block font-medium whitespace-nowrap text-gray-500">
+                                        Explore Countries
+                                    </span>
+                                </div>
+                            </Link>
+                        </div>
+                        
+                        {/* Loading skeleton for navigation */}
+                        <div className="hidden lg:flex items-center space-x-4">
+                            <div className="w-16 h-6 bg-gray-200 rounded animate-pulse"></div>
+                            <div className="w-20 h-8 bg-gray-200 rounded-full animate-pulse"></div>
+                            <div className="w-24 h-8 bg-gray-200 rounded-full animate-pulse"></div>
+                        </div>
+                        
+                        {/* Mobile menu button */}
+                        <div className="lg:hidden">
+                            <div className="w-10 h-10 bg-gray-200 rounded-xl animate-pulse"></div>
                         </div>
                     </div>
                 </div>
@@ -162,13 +206,13 @@ function Header() {
                                 )}
                             </Link>
                             
-                            {loading && !user ? (
+                            {(loading || authTransition) && !user ? (
                                 // Show loading skeleton for authentication state
                                 <div className="flex items-center space-x-3">
                                     <div className="w-20 h-6 bg-gray-200 rounded animate-pulse"></div>
                                     <div className="w-16 h-8 bg-gray-200 rounded-full animate-pulse"></div>
                                 </div>
-                            ) : isAuthenticated ? (
+                            ) : isAuthenticated && user ? (
                                 <>
                                     <Link 
                                         to="/profile" 
@@ -326,7 +370,7 @@ function Header() {
                                 )}
                             </Link>
                             
-                            {loading && !user ? (
+                            {(loading || authTransition) && !user ? (
                                 // Mobile loading state
                                 <div className="space-y-3 px-4">
                                     <div className="flex items-center space-x-3">
@@ -338,7 +382,7 @@ function Header() {
                                         <div className="w-16 h-4 bg-gray-200 rounded animate-pulse"></div>
                                     </div>
                                 </div>
-                            ) : isAuthenticated ? (
+                            ) : isAuthenticated && user ? (
                                 <>
                                     <Link 
                                         to="/profile" 

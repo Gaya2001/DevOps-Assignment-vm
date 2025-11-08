@@ -48,13 +48,15 @@ export const AuthProvider = ({ children }) => {
             setLoading(true);
             setError(null);
             const { user } = await loginUser(credentials);
+            
             // Set user immediately after successful API response
             setUser(user);
-            setLoading(false); // Set loading false immediately for better UX
+            setLoading(false); // Remove the setTimeout delay
+            
             return true;
         } catch (err) {
             setError(err.response?.data?.message || 'Login failed');
-            setUser(null); // Ensure user is null on login failure
+            setUser(null);
             setLoading(false);
             return false;
         }
@@ -65,13 +67,16 @@ export const AuthProvider = ({ children }) => {
             setLoading(true);
             setError(null);
             const { user } = await registerUser(userData);
+            
+            // Set user immediately after successful API response
             setUser(user);
+            setLoading(false); // Remove the setTimeout delay
+            
             return true;
         } catch (err) {
             setError(err.response?.data?.message || 'Registration failed');
-            return false;
-        } finally {
             setLoading(false);
+            return false;
         }
     };
 
@@ -96,19 +101,28 @@ export const AuthProvider = ({ children }) => {
     const logout = async () => {
         try {
             setLoading(true);
-            // Clear user state immediately for better UX
+            
+            // Clear user state immediately for immediate UI feedback
             setUser(null);
             // Clear token immediately
             localStorage.removeItem('token');
+            
             // Then make the API call
             await logoutUser();
+            
+            // Small delay for smooth transition
+            setTimeout(() => {
+                setLoading(false);
+            }, 150);
+            
             return true;
         } catch (err) {
             console.error('Logout API call failed:', err);
             // Even if API fails, user is logged out locally
+            setTimeout(() => {
+                setLoading(false);
+            }, 150);
             return true;
-        } finally {
-            setLoading(false);
         }
     };
 
