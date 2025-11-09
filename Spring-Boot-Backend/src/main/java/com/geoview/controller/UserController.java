@@ -5,6 +5,7 @@ import com.geoview.model.FavoriteCountry;
 import com.geoview.model.User;
 import com.geoview.repository.UserRepository;
 import com.geoview.security.UserPrincipal;
+import com.geoview.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -23,11 +24,15 @@ public class UserController {
     @Autowired
     private UserRepository userRepository;
     
+    @Autowired
+    private UserService userService;
+    
     @GetMapping("/profile")
     public ResponseEntity<?> getUserProfile(Authentication authentication) {
         try {
             UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
-            Optional<User> userOptional = userRepository.findById(userPrincipal.getId());
+            // Use cached service method
+            Optional<User> userOptional = userService.getUserById(userPrincipal.getId());
             
             if (userOptional.isEmpty()) {
                 return ResponseEntity.status(404).body(createErrorResponse("User not found"));
@@ -58,7 +63,7 @@ public class UserController {
                                               Authentication authentication) {
         try {
             UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
-            Optional<User> userOptional = userRepository.findById(userPrincipal.getId());
+            Optional<User> userOptional = userService.getUserById(userPrincipal.getId());
             
             if (userOptional.isEmpty()) {
                 return ResponseEntity.status(404).body(createErrorResponse("User not found"));
@@ -74,20 +79,23 @@ public class UserController {
                 return ResponseEntity.status(400).body(createErrorResponse("Country already in favorites"));
             }
             
-            // Add country to favorites
+            // Add country to favorites using service (will evict cache)
             FavoriteCountry favoriteCountry = new FavoriteCountry(
                     request.getCountryCode(),
                     request.getCountryName(),
                     request.getFlagUrl()
             );
             
-            user.getFavoriteCountries().add(favoriteCountry);
-            userRepository.save(user);
+            User updatedUser = userService.addFavoriteCountry(userPrincipal.getId(), favoriteCountry);
+            
+            if (updatedUser == null) {
+                return ResponseEntity.status(500).body(createErrorResponse("Failed to add favorite"));
+            }
             
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Country added to favorites");
-            response.put("favoriteCountries", user.getFavoriteCountries());
+            response.put("favoriteCountries", updatedUser.getFavoriteCountries());
             
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -101,25 +109,18 @@ public class UserController {
                                                  Authentication authentication) {
         try {
             UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
-            Optional<User> userOptional = userRepository.findById(userPrincipal.getId());
             
-            if (userOptional.isEmpty()) {
+            // Use service method to remove favorite (will evict cache)
+            User updatedUser = userService.removeFavoriteCountry(userPrincipal.getId(), countryCode);
+            
+            if (updatedUser == null) {
                 return ResponseEntity.status(404).body(createErrorResponse("User not found"));
             }
-            
-            User user = userOptional.get();
-            
-            // Remove country from favorites
-            user.getFavoriteCountries().removeIf(
-                    country -> country.getCountryCode().equals(countryCode)
-            );
-            
-            userRepository.save(user);
             
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Country removed from favorites");
-            response.put("favoriteCountries", user.getFavoriteCountries());
+            response.put("favoriteCountries", updatedUser.getFavoriteCountries());
             
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -134,7 +135,8 @@ public class UserController {
             UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
             System.out.println("getFavoriteCountries called with user.id: " + userPrincipal.getId());
             
-            Optional<User> userOptional = userRepository.findById(userPrincipal.getId());
+            // Use cached service method
+            Optional<User> userOptional = userService.getUserById(userPrincipal.getId());
             
             if (userOptional.isEmpty()) {
                 return ResponseEntity.status(404).body(createErrorResponse("User not found"));
