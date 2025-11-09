@@ -21,7 +21,7 @@ public class UserService {
      * Cache key: user:profile:{userId}
      * TTL: 10 minutes (configured in RedisConfig)
      */
-    @Cacheable(value = "userProfile", key = "#userId")
+    // @Cacheable(value = "userProfile", key = "#userId")
     public Optional<User> getUserById(String userId) {
         System.out.println("Fetching user from database for userId: " + userId);
         return userRepository.findById(userId);
@@ -31,7 +31,7 @@ public class UserService {
      * Get user by username with caching
      * Cache key: user:username:{username}
      */
-    @Cacheable(value = "userByUsername", key = "#username")
+    // @Cacheable(value = "userByUsername", key = "#username")
     public Optional<User> getUserByUsername(String username) {
         System.out.println("Fetching user from database for username: " + username);
         return userRepository.findByUsername(username);
@@ -50,7 +50,7 @@ public class UserService {
     /**
      * Add favorite country and evict user cache
      */
-    @CacheEvict(value = {"userProfile", "userByUsername"}, key = "#userId")
+    // @CacheEvict(value = {"userProfile", "userByUsername"}, key = "#userId")
     public User addFavoriteCountry(String userId, FavoriteCountry favoriteCountry) {
         System.out.println("Adding favorite country and evicting cache for userId: " + userId);
         Optional<User> userOptional = userRepository.findById(userId);
@@ -65,7 +65,7 @@ public class UserService {
     /**
      * Remove favorite country and evict user cache
      */
-    @CacheEvict(value = {"userProfile", "userByUsername"}, key = "#userId")
+    // @CacheEvict(value = {"userProfile", "userByUsername"}, key = "#userId")
     public User removeFavoriteCountry(String userId, String countryCode) {
         System.out.println("Removing favorite country and evicting cache for userId: " + userId);
         Optional<User> userOptional = userRepository.findById(userId);
